@@ -4,6 +4,7 @@
 #include <iostream>
 #include <string>
 #include <sstream>
+#include <sys/statvfs.h>
 
 LinuxSystemMonitor::LinuxSystemMonitor() {
     totalRam = parseMemInfo(findLineInFile("/proc/meminfo", "MemTotal:"));
@@ -11,6 +12,7 @@ LinuxSystemMonitor::LinuxSystemMonitor() {
         throw std::runtime_error("Failed to initialize system monitor: Could not read MemTotal");
 
     initCpuSnaphots();
+    initNetworkSnapshot();
 }
 
 std::string LinuxSystemMonitor::findLineInFile(const std::string& path, const std::string& key) {
@@ -60,7 +62,7 @@ void LinuxSystemMonitor::initCpuSnaphots() {
     }
 }
 
-std::vector<std::pair<int, double>> LinuxSystemMonitor::getCpuUsage() {
+std::vector<std::pair<int, double>> LinuxSystemMonitor::getCPUUsage() {
     std::ifstream f("/proc/stat");
     if(!f.is_open()){
         throw std::runtime_error("Error accessing CPU usage kernel file");
@@ -95,8 +97,26 @@ std::vector<std::pair<int, double>> LinuxSystemMonitor::getCpuUsage() {
     return usagePercentages;
 }
 
-double LinuxSystemMonitor::getStorageUsage(enum SystemMonitor::StorageType) {
-    return 0.0;
+double LinuxSystemMonitor::getCPUTemperature(){
+    std::ifstream f("/sys/class/hwmon/hwmon2/temp3_input"); //AMD GPU on my system
+    if (!f.is_open()){
+        throw std::runtime_error("Error accessing CPU temperature kernel file");
+    }
+    std::string line;
+    std::getline(f, line);
+
+    return std::stod(line) / 1000.0; 
+}
+
+double LinuxSystemMonitor::getStorageUsage(SystemMonitor::StorageType type) {
+    if (type != SystemMonitor::SSD) return 0.0;
+
+    struct statvfs stat;
+    if (statvfs("/", &stat) != 0) return 0.0;
+
+    double total = stat.f_blocks * stat.f_frsize;
+    double free  = stat.f_bfree  * stat.f_frsize;
+    return (total - free) / total * 100.0;
 }
 
 double LinuxSystemMonitor::getGPUTemperature() {
@@ -110,6 +130,55 @@ double LinuxSystemMonitor::getGPUTemperature() {
     return std::stod(line) / 1000.0; 
 }
 
+double LinuxSystemMonitor::getGPUUsage(){
+    std::ifstream f("/sys/class/drm/card1/device/gpu_busy_percent");
+    if(!f.is_open()){
+        throw std::runtime_error("Error accessing GPU usage kernel file");
+    }
+
+    std::string line;
+    std::getline(f, line);
+
+    return std::stod(line);
+}
+
+std::pair<long, long> LinuxSystemMonitor::readNetworkBytes() {
+    std::ifstream f("/proc/net/dev");
+    if (!f.is_open())
+        throw std::runtime_error("Error accessing /proc/net/dev");
+
+    long totalRx = 0, totalTx = 0;
+    std::string line;
+    std::getline(f, line); // skip header lines
+    std::getline(f, line);
+
+    while (std::getline(f, line)) {
+        std::istringstream ss(line);
+        std::string iface;
+        long rx, tx;
+        long ignore;
+        ss >> iface >> rx >> ignore >> ignore >> ignore >> ignore >> ignore >> ignore >> ignore >> tx;
+
+        if (iface == "lo:") continue;
+        totalRx += rx;
+        totalTx += tx;
+    }
+    return {totalRx, totalTx};
+}
+
+void LinuxSystemMonitor::initNetworkSnapshot() {
+    auto [rx, tx] = readNetworkBytes();
+    prevNetworkSnapshot = {rx, tx, std::chrono::steady_clock::now()};
+}
+
 std::pair<double, double> LinuxSystemMonitor::getNetworkUsage() {
-    return {0.0, 0.0};
+    auto [rx, tx] = readNetworkBytes();
+    auto now = std::chrono::steady_clock::now();
+
+    double seconds = std::chrono::duration<double>(now - prevNetworkSnapshot.time).count();
+    double download = (rx - prevNetworkSnapshot.rx) / seconds / (1024.0 * 1024.0);
+    double upload   = (tx - prevNetworkSnapshot.tx) / seconds / (1024.0 * 1024.0);
+
+    prevNetworkSnapshot = {rx, tx, now};
+    return {download, upload};
 }

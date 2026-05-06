@@ -12,9 +12,11 @@ class SystemMonitor {
 
         virtual ~SystemMonitor() = default;
 
-        virtual std::vector<std::pair<int, double>> getCpuUsage() = 0; // Which CPU core and its usage percent
+        virtual std::vector<std::pair<int, double>> getCPUUsage() = 0; // Which CPU core and its usage percent
+        virtual double getCPUTemperature() = 0;
         virtual double getAvailableRAM() = 0; 
         virtual double getStorageUsage(enum StorageType) = 0;  
+        virtual double getGPUUsage() = 0;
         virtual double getGPUTemperature() = 0;
         virtual std::pair<double, double> getNetworkUsage() = 0;
 };

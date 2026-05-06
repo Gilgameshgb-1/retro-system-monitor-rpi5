@@ -10,11 +10,18 @@
 class LinuxSystemMonitor : public SystemMonitor{
     private:
         double totalRam = 0.0;
-        double availableRam = 0.0;
-        std::ifstream infoStreamRAM;
+
+        struct cpuSnapshot{
+            long idle;
+            long total;
+        };
+
+        std::vector<cpuSnapshot> prevCpuSnapshots;
 
         double parseMemInfo(const std::string& line);
-        std::string goThroughMemInfo(const std::string& key);
+        std::string findLineInFile(const std::string& path, const std::string& key);
+
+        void initCpuSnaphots(); //We snapshot the CPU at the construction of the object
 
     public:
         LinuxSystemMonitor();

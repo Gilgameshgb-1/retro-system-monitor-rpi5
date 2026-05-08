@@ -2,12 +2,20 @@
 
 #include <utility>
 #include <vector>
+#include <string>
 
 class SystemMonitor {
     public:
         enum StorageType { // Mostly for Raspberry Pi, but can be extended for other systems
             SSD,
             SDCARD
+        };
+
+        struct ProcessInfo {
+            int pid;
+            std::string name;
+            double cpuUsagePercent;
+            double memoryMiB;
         };
 
         virtual ~SystemMonitor() = default;
@@ -19,4 +27,5 @@ class SystemMonitor {
         virtual double getGPUUsage() = 0;
         virtual double getGPUTemperature() = 0;
         virtual std::pair<double, double> getNetworkUsage() = 0;
+        virtual std::vector<ProcessInfo> getTopProcesses(int count = 5) = 0;
 };

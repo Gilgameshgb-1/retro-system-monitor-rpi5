@@ -24,5 +24,10 @@ int main() {
               << monitor.getNetworkUsage().first << " MiB/s down, "
               << monitor.getNetworkUsage().second << " MiB/s up" << std::endl;
 
+    for (const auto& process: monitor.getTopProcesses(5))
+    {
+        std::cout<< "PID: " << process.pid << " Name: " << process.name << " CPU Usage: " << process.cpuUsagePercent << "%" << " Memory: "<< process.memoryMiB << "MiB" << std::endl;
+    }
+
     return 0;
 }

@@ -22,6 +22,7 @@ class SystemMonitor {
 
         virtual std::vector<std::pair<int, double>> getCPUUsage() = 0; // Which CPU core and its usage percent
         virtual double getCPUTemperature() = 0;
+        virtual double getRamSizeGiB() = 0;
         virtual double getAvailableRAM() = 0; 
         virtual double getStorageUsage(enum StorageType) = 0;  
         virtual double getGPUUsage() = 0;

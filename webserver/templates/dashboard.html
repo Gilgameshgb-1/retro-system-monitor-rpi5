@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="theme-color" content="#0a0a0a">
+    <title>retro system monitor</title>
+    <style>
+        :root {
+            --bg: #0a0a0a;
+            --panel: #111;
+            --border: #1a3a1a;
+            --fg: #33ff66;
+            --fg-dim: #1a8033;
+            --warn: #ffaa00;
+            --crit: #ff3333;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            background: var(--bg);
+            color: var(--fg);
+            font-family: 'Courier New', Courier, monospace;
+            padding: 12px;
+            min-height: 100vh;
+            font-size: 14px;
+            -webkit-text-size-adjust: 100%;
+        }
+
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding-bottom: 12px;
+            border-bottom: 1px solid var(--border);
+            margin-bottom: 16px;
+        }
+
+        h1 {
+            font-size: 16px;
+            letter-spacing: 2px;
+        }
+
+        #connection {
+            font-size: 11px;
+            padding: 4px 8px;
+            border: 1px solid var(--fg-dim);
+            border-radius: 2px;
+        }
+
+        #connection.connected { color: var(--fg); border-color: var(--fg); }
+        #connection.disconnected { color: var(--crit); border-color: var(--crit); }
+
+        .card {
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            padding: 12px;
+            margin-bottom: 12px;
+        }
+
+        .card-title {
+            font-size: 11px;
+            color: var(--fg-dim);
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            margin-bottom: 8px;
+        }
+
+        .row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 4px 0;
+        }
+
+        .row .label { color: var(--fg-dim); }
+        .row .value { color: var(--fg); font-weight: bold; }
+
+        .bar {
+            position: relative;
+            background: #0a1a0a;
+            border: 1px solid var(--border);
+            height: 16px;
+            margin: 4px 0;
+            border-radius: 2px;
+            overflow: hidden;
+        }
+
+        .bar-fill {
+            height: 100%;
+            background: var(--fg);
+            transition: width 0.5s ease;
+        }
+
+        .bar-fill.warn { background: var(--warn); }
+        .bar-fill.crit { background: var(--crit); }
+
+        .bar-label {
+            position: absolute;
+            top: 0;
+            left: 6px;
+            line-height: 16px;
+            font-size: 10px;
+            color: #000;
+            font-weight: bold;
+            text-shadow: 0 0 2px rgba(0,0,0,0.5);
+        }
+
+        .core-row {
+            display: grid;
+            grid-template-columns: 40px 1fr;
+            gap: 8px;
+            align-items: center;
+            margin-bottom: 4px;
+        }
+
+        .core-label { font-size: 11px; color: var(--fg-dim); }
+
+        .proc {
+            display: grid;
+            grid-template-columns: 1fr auto auto;
+            gap: 8px;
+            padding: 6px 0;
+            border-bottom: 1px dashed var(--border);
+            font-size: 12px;
+        }
+
+        .proc:last-child { border-bottom: none; }
+        .proc .name { color: var(--fg); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .proc .stat { color: var(--fg-dim); }
+
+        .hidden { display: none; }
+
+        /* On larger screens (tablet/desktop), 2-column layout */
+        @media (min-width: 700px) {
+            #grid {
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                gap: 12px;
+            }
+            #grid .card { margin-bottom: 0; }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>SYS_MONITOR</h1>
+        <div id="connection" class="disconnected">DISCONNECTED</div>
+    </header>
+
+    <div id="grid">
+        <div class="card" id="card-ram">
+            <div class="card-title">memory</div>
+            <div class="bar">
+                <div class="bar-fill" id="ram-bar" style="width: 0%"></div>
+                <div class="bar-label" id="ram-bar-label"></div>
+            </div>
+            <div class="row">
+                <span class="label">available</span>
+                <span class="value" id="ram-available">-</span>
+            </div>
+            <div class="row">
+                <span class="label">total</span>
+                <span class="value" id="ram-total">-</span>
+            </div>
+        </div>
+
+        <div class="card hidden" id="card-cpu">
+            <div class="card-title">cpu</div>
+            <div class="row">
+                <span class="label">temperature</span>
+                <span class="value" id="cpu-temp">-</span>
+            </div>
+            <div id="cpu-cores"></div>
+        </div>
+
+        <div class="card hidden" id="card-gpu">
+            <div class="card-title">gpu</div>
+            <div class="bar">
+                <div class="bar-fill" id="gpu-bar" style="width: 0%"></div>
+                <div class="bar-label" id="gpu-bar-label"></div>
+            </div>
+            <div class="row">
+                <span class="label">temperature</span>
+                <span class="value" id="gpu-temp">-</span>
+            </div>
+        </div>
+
+        <div class="card hidden" id="card-storage">
+            <div class="card-title">storage</div>
+            <div id="storage-list"></div>
+        </div>
+
+        <div class="card hidden" id="card-network">
+            <div class="card-title">network</div>
+            <div class="row">
+                <span class="label">download</span>
+                <span class="value" id="net-down">-</span>
+            </div>
+            <div class="row">
+                <span class="label">upload</span>
+                <span class="value" id="net-up">-</span>
+            </div>
+        </div>
+
+        <div class="card hidden" id="card-procs">
+            <div class="card-title">top processes</div>
+            <div id="procs-list"></div>
+        </div>
+    </div>
+
+    <script>
+        const status = document.getElementById('connection');
+
+        function colorForPercent(p) {
+            if (p >= 85) return 'crit';
+            if (p >= 65) return 'warn';
+            return '';
+        }
+
+        function setBar(barId, labelId, percent) {
+            const bar = document.getElementById(barId);
+            const label = document.getElementById(labelId);
+            const clamped = Math.max(0, Math.min(100, percent));
+            bar.style.width = clamped.toFixed(1) + '%';
+            bar.className = 'bar-fill ' + colorForPercent(clamped);
+            label.textContent = clamped.toFixed(1) + '%';
+        }
+
+        function show(id, visible) {
+            const el = document.getElementById(id);
+            if (visible) el.classList.remove('hidden');
+            else el.classList.add('hidden');
+        }
+
+        function render(data) {
+            // RAM
+            if (data.ram) {
+                const avail = data.ram.available_gib;
+                const total = data.ram.total_gib;
+                document.getElementById('ram-available').textContent = avail?.toFixed(2) + ' GiB';
+                document.getElementById('ram-total').textContent = total ? total.toFixed(2) + ' GiB' : '-';
+                if (avail && total) {
+                    const usedPct = ((total - avail) / total) * 100;
+                    setBar('ram-bar', 'ram-bar-label', usedPct);
+                }
+            }
+
+            // CPU
+            if (data.cpu) {
+                show('card-cpu', true);
+                if (data.cpu.temp_c !== undefined)
+                    document.getElementById('cpu-temp').textContent = data.cpu.temp_c.toFixed(1) + ' C';
+
+                if (data.cpu.cores) {
+                    const container = document.getElementById('cpu-cores');
+                    // build/update rows
+                    while (container.children.length < data.cpu.cores.length) {
+                        const row = document.createElement('div');
+                        row.className = 'core-row';
+                        row.innerHTML = `
+                            <div class="core-label">cpu${container.children.length}</div>
+                            <div class="bar">
+                                <div class="bar-fill" style="width: 0%"></div>
+                                <div class="bar-label"></div>
+                            </div>`;
+                        container.appendChild(row);
+                    }
+                    data.cpu.cores.forEach((usage, i) => {
+                        const row = container.children[i];
+                        const fill = row.querySelector('.bar-fill');
+                        const label = row.querySelector('.bar-label');
+                        const clamped = Math.max(0, Math.min(100, usage));
+                        fill.style.width = clamped.toFixed(1) + '%';
+                        fill.className = 'bar-fill ' + colorForPercent(clamped);
+                        label.textContent = clamped.toFixed(0) + '%';
+                    });
+                }
+            }
+
+            // GPU
+            if (data.gpu) {
+                show('card-gpu', true);
+                if (data.gpu.usage_percent !== undefined)
+                    setBar('gpu-bar', 'gpu-bar-label', data.gpu.usage_percent);
+                if (data.gpu.temp_c !== undefined)
+                    document.getElementById('gpu-temp').textContent = data.gpu.temp_c.toFixed(1) + ' C';
+            }
+
+            // Storage
+            if (data.storage) {
+                show('card-storage', true);
+                const list = document.getElementById('storage-list');
+                list.innerHTML = '';
+                for (const [key, value] of Object.entries(data.storage)) {
+                    const label = key.replace('_used_percent', '').toUpperCase();
+                    const row = document.createElement('div');
+                    row.innerHTML = `
+                        <div class="row"><span class="label">${label}</span><span class="value">${value.toFixed(1)}%</span></div>
+                        <div class="bar">
+                            <div class="bar-fill ${colorForPercent(value)}" style="width: ${value}%"></div>
+                        </div>`;
+                    list.appendChild(row);
+                }
+            }
+
+            // Network
+            if (data.network) {
+                show('card-network', true);
+                document.getElementById('net-down').textContent = (data.network.down_mib_s || 0).toFixed(2) + ' MiB/s';
+                document.getElementById('net-up').textContent = (data.network.up_mib_s || 0).toFixed(2) + ' MiB/s';
+            }
+
+            // Top processes
+            if (data.top_processes) {
+                show('card-procs', true);
+                const list = document.getElementById('procs-list');
+                list.innerHTML = '';
+                data.top_processes.forEach(p => {
+                    const div = document.createElement('div');
+                    div.className = 'proc';
+                    div.innerHTML = `
+                        <span class="name">${p.name}</span>
+                        <span class="stat">${(p.cpu_percent || 0).toFixed(1)}%</span>
+                        <span class="stat">${(p.memory_mib || 0).toFixed(0)} MiB</span>`;
+                    list.appendChild(div);
+                });
+            }
+        }
+
+        function connect() {
+            const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+            const ws = new WebSocket(`${proto}://${location.host}/ws/dashboard`);
+
+            ws.onopen = () => {
+                status.textContent = 'CONNECTED';
+                status.className = 'connected';
+            };
+
+            ws.onmessage = (event) => {
+                try {
+                    const data = JSON.parse(event.data);
+                    render(data);
+                } catch (e) {
+                    console.error('bad payload', e);
+                }
+            };
+
+            ws.onclose = () => {
+                status.textContent = 'DISCONNECTED';
+                status.className = 'disconnected';
+                setTimeout(connect, 1000);  // reconnect
+            };
+
+            ws.onerror = () => ws.close();
+        }
+
+        connect();
+    </script>
+</body>
+</html>

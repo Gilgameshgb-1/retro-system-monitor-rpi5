@@ -48,6 +48,7 @@ class LinuxSystemMonitor : public SystemMonitor {
 
         std::vector<std::pair<int, double>> getCPUUsage() override;
         double getCPUTemperature() override;
+        double getRamSizeGiB() override;
         double getAvailableRAM() override;
         double getStorageUsage(enum SystemMonitor::StorageType) override;
         double getGPUTemperature() override;

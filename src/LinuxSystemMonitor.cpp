@@ -116,6 +116,10 @@ double LinuxSystemMonitor::getAvailableRAM() {
     return parseMemInfo(data) / 1024.0 / 1024.0;
 }
 
+double LinuxSystemMonitor::getRamSizeGiB() {
+    return totalRam / 1024.0 / 1024.0;
+}
+
 void LinuxSystemMonitor::initCpuSnapshots() {
     prevCpuSnapshots = readCpuSnapshots();
 }

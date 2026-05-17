@@ -1,72 +1,70 @@
 #include <iostream>
-#include <iomanip>
-#include <unistd.h>
-#include <nlohmann/json.hpp>
 #include <chrono>
 #include <thread>
+#include <ctime>
+#include <unistd.h>
 #include <ixwebsocket/IXWebSocket.h>
+#include <nlohmann/json.hpp>
 #include "LinuxSystemMonitor.hpp"
 
-//comment out old main
-// int main() {
-//     //Example main not reflective of what actually is suopposed to happen in main
-//     LinuxSystemMonitor monitor;
-//     std::cout << "Available RAM: " << std::fixed << std::setprecision(2) << monitor.getAvailableRAM() << " GiB" << std::endl;
-//     std::cout << "GPU Temp:      " << std::fixed << std::setprecision(2) << monitor.getGPUTemperature() << " C" << std::endl;
-//     std::cout << "GPU Usage:      " << std::fixed << std::setprecision(2) << monitor.getGPUUsage() << "%" << std::endl;
-//     std::cout << "Storage Usage:  " << std::fixed << std::setprecision(2) << monitor.getStorageUsage(SystemMonitor::SSD) << "%" << std::endl;
-//     sleep(1);
-
-//     std::cout<<"CPU Temp:      " << std::fixed << std::setprecision(2) << monitor.getCPUTemperature() << " C" << std::endl;
-
-//     std::cout << std::fixed << std::setprecision(2) << "CPU Usage:" << std::endl;
-//     for (auto& [core, usage] : monitor.getCPUUsage()) {
-//         std::cout << "  cpu" << core << ": "
-//                   << std::fixed << std::setprecision(1) << std::setw(5) << usage << "%" << std::endl;
-//     }
-
-//     std::cout << std::fixed << std::setprecision(2) << "Network Usage: " 
-//               << monitor.getNetworkUsage().first << " MiB/s down, "
-//               << monitor.getNetworkUsage().second << " MiB/s up" << std::endl;
-
-//     for (const auto& process: monitor.getTopProcesses(5))
-//     {
-//         std::cout<< "PID: " << process.pid << " Name: " << process.name << " CPU Usage: " << process.cpuUsagePercent << "%" << " Memory: "<< process.memoryMiB << "MiB" << std::endl;
-//     }
-
-//     return 0;
-// }
-
-int main(){
+int main() {
     LinuxSystemMonitor monitor;
+
+    char host[256];
+    gethostname(host, sizeof(host));
 
     ix::WebSocket ws;
     ws.setUrl("ws://localhost:5000/ws/producer");
-
-    ws.setOnMessageCallback([](const ix::WebSocketMessagePtr &msg){
-        if(msg->type == ix::WebSocketMessageType::Open)
-            std::cout << "Connected" << std::endl;
-        else if(msg->type == ix::WebSocketMessageType::Error)
-            std::cout << "Error: " << msg->errorInfo.reason << std::endl;
+    ws.setOnMessageCallback([](const ix::WebSocketMessagePtr& msg) {
+        if (msg->type == ix::WebSocketMessageType::Open)
+            std::cout << "ws: connected" << std::endl;
+        else if (msg->type == ix::WebSocketMessageType::Close)
+            std::cout << "ws: closed" << std::endl;
+        else if (msg->type == ix::WebSocketMessageType::Error)
+            std::cout << "ws: error: " << msg->errorInfo.reason << std::endl;
     });
-
     ws.start();
-    std::this_thread::sleep_for(std::chrono::seconds(1));
 
-    while(true)
-    {
-        nlohmann::json snapshot = {
-            {"timestamp", 676767},
-            {"host", "test"},
-            {"ram", {{"available_gib", monitor.getAvailableRAM()}, {"total_gib", monitor.getRamSizeGiB()}}}
-        };
+    while (true) {
+        std::this_thread::sleep_for(std::chrono::seconds(1));
 
-        ws.send(snapshot.dump());
+        nlohmann::json snapshot;
+        snapshot["timestamp"] = std::time(nullptr);
+        snapshot["host"]      = host;
 
-        std::this_thread::sleep_for(std::chrono::seconds(2));
+        snapshot["ram"]["available_gib"] = monitor.getAvailableRAM();
+        snapshot["ram"]["total_gib"]     = monitor.getRamSizeGiB();
+
+        nlohmann::json cores = nlohmann::json::array();
+        for (const auto& [idx, usage] : monitor.getCPUUsage())
+            cores.push_back(usage);
+        snapshot["cpu"]["cores"]  = cores;
+        snapshot["cpu"]["temp_c"] = monitor.getCPUTemperature();
+
+        snapshot["gpu"]["usage_percent"] = monitor.getGPUUsage();
+        snapshot["gpu"]["temp_c"]        = monitor.getGPUTemperature();
+
+        snapshot["storage"]["ssd_used_percent"] = monitor.getStorageUsage(SystemMonitor::SSD);
+
+        auto [down, up] = monitor.getNetworkUsage();
+        snapshot["network"]["down_mib_s"] = down;
+        snapshot["network"]["up_mib_s"]   = up;
+
+        nlohmann::json procs = nlohmann::json::array();
+        for (const auto& p : monitor.getTopProcesses(5)) {
+            procs.push_back({
+                {"pid", p.pid},
+                {"name", p.name},
+                {"cpu_percent", p.cpuUsagePercent},
+                {"memory_mib", p.memoryMiB}
+            });
+        }
+        snapshot["top_processes"] = procs;
+
+        if (ws.getReadyState() == ix::ReadyState::Open)
+            ws.send(snapshot.dump());
     }
 
     ws.stop();
-    
     return 0;
 }

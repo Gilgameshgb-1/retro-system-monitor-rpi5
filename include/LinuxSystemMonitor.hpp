@@ -31,12 +31,12 @@ class LinuxSystemMonitor : public SystemMonitor {
         std::map<int, long> prevProcessTicks;
         long prevTotalCpuTicks = 0;
 
-        double parseMemInfo(const std::string& line);
-        std::string findLineInFile(const std::string& path, const std::string& key);
-        long readTotalCpuTicks();
-        std::vector<CpuSnapshot> readCpuSnapshots();
-        std::vector<ProcEntry> readProcessEntries();
-        std::pair<long, long> readNetworkBytes();
+        static double parseMemInfo(const std::string& line);
+        static std::string findLineInFile(const std::string& path, const std::string& key);
+        long readTotalCpuTicks() const;
+        std::vector<CpuSnapshot> readCpuSnapshots() const;
+        std::vector<ProcEntry> readProcessEntries() const;
+        std::pair<long, long> readNetworkBytes() const;
 
         void initCpuSnapshots();
         void initNetworkSnapshot();
@@ -47,12 +47,12 @@ class LinuxSystemMonitor : public SystemMonitor {
         ~LinuxSystemMonitor() = default;
 
         std::vector<std::pair<int, double>> getCPUUsage() override;
-        double getCPUTemperature() override;
-        double getRamSizeGiB() override;
-        double getAvailableRAM() override;
-        double getStorageUsage(enum SystemMonitor::StorageType) override;
-        double getGPUTemperature() override;
-        double getGPUUsage() override;
+        double getCPUTemperature() const override;
+        double getRamSizeGiB() const override;
+        double getAvailableRAM() const override;
+        double getStorageUsage(enum SystemMonitor::StorageType) const override;
+        double getGPUTemperature() const override;
+        double getGPUUsage() const override;
         std::pair<double, double> getNetworkUsage() override;
         std::vector<ProcessInfo> getTopProcesses(int count) override;
 };

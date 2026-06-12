@@ -39,7 +39,7 @@ double LinuxSystemMonitor::parseMemInfo(const std::string& line) {
     }
 }
 
-long LinuxSystemMonitor::readTotalCpuTicks() {
+long LinuxSystemMonitor::readTotalCpuTicks() const {
     std::ifstream f("/proc/stat");
     if (!f.is_open())
         throw std::runtime_error("Error accessing /proc/stat");
@@ -52,7 +52,7 @@ long LinuxSystemMonitor::readTotalCpuTicks() {
     return user + nice + system + idle + iowait + irq + softirq + steal;
 }
 
-std::vector<LinuxSystemMonitor::CpuSnapshot> LinuxSystemMonitor::readCpuSnapshots() {
+std::vector<LinuxSystemMonitor::CpuSnapshot> LinuxSystemMonitor::readCpuSnapshots() const {
     std::ifstream f("/proc/stat");
     if (!f.is_open())
         throw std::runtime_error("Error accessing /proc/stat");
@@ -71,7 +71,7 @@ std::vector<LinuxSystemMonitor::CpuSnapshot> LinuxSystemMonitor::readCpuSnapshot
     return snapshots;
 }
 
-std::vector<LinuxSystemMonitor::ProcEntry> LinuxSystemMonitor::readProcessEntries() {
+std::vector<LinuxSystemMonitor::ProcEntry> LinuxSystemMonitor::readProcessEntries() const {
     std::vector<ProcEntry> entries;
     for (const auto& folder : std::filesystem::directory_iterator("/proc")) {
         std::string name = folder.path().filename().string();
@@ -111,12 +111,12 @@ std::vector<LinuxSystemMonitor::ProcEntry> LinuxSystemMonitor::readProcessEntrie
     return entries;
 }
 
-double LinuxSystemMonitor::getAvailableRAM() {
+double LinuxSystemMonitor::getAvailableRAM() const {
     std::string data = findLineInFile("/proc/meminfo", "MemAvailable:");
     return parseMemInfo(data) / 1024.0 / 1024.0;
 }
 
-double LinuxSystemMonitor::getRamSizeGiB() {
+double LinuxSystemMonitor::getRamSizeGiB() const {
     return totalRam / 1024.0 / 1024.0;
 }
 
@@ -138,7 +138,7 @@ std::vector<std::pair<int, double>> LinuxSystemMonitor::getCPUUsage() {
     return usagePercentages;
 }
 
-double LinuxSystemMonitor::getCPUTemperature() {
+double LinuxSystemMonitor::getCPUTemperature() const{
     std::ifstream f("/sys/class/hwmon/hwmon2/temp3_input");
     if (!f.is_open())
         throw std::runtime_error("Error accessing CPU temperature kernel file");
@@ -147,7 +147,7 @@ double LinuxSystemMonitor::getCPUTemperature() {
     return std::stod(line) / 1000.0;
 }
 
-double LinuxSystemMonitor::getStorageUsage(SystemMonitor::StorageType type) {
+double LinuxSystemMonitor::getStorageUsage(SystemMonitor::StorageType type) const {
     if (type != SystemMonitor::SSD) return 0.0;
 
     struct statvfs stat;
@@ -158,7 +158,7 @@ double LinuxSystemMonitor::getStorageUsage(SystemMonitor::StorageType type) {
     return (total - free) / total * 100.0;
 }
 
-double LinuxSystemMonitor::getGPUTemperature() {
+double LinuxSystemMonitor::getGPUTemperature() const {
     std::ifstream f("/sys/class/hwmon/hwmon4/temp1_input");
     if (!f.is_open())
         throw std::runtime_error("Error accessing GPU temperature kernel file");
@@ -167,7 +167,7 @@ double LinuxSystemMonitor::getGPUTemperature() {
     return std::stod(line) / 1000.0;
 }
 
-double LinuxSystemMonitor::getGPUUsage() {
+double LinuxSystemMonitor::getGPUUsage() const {
     std::ifstream f("/sys/class/drm/card1/device/gpu_busy_percent");
     if (!f.is_open())
         throw std::runtime_error("Error accessing GPU usage kernel file");
@@ -176,7 +176,7 @@ double LinuxSystemMonitor::getGPUUsage() {
     return std::stod(line);
 }
 
-std::pair<long, long> LinuxSystemMonitor::readNetworkBytes() {
+std::pair<long, long> LinuxSystemMonitor::readNetworkBytes() const {
     std::ifstream f("/proc/net/dev");
     if (!f.is_open())
         throw std::runtime_error("Error accessing /proc/net/dev");

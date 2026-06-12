@@ -79,5 +79,6 @@ def dashboard(ws):
 
 
 if __name__ == "__main__":
-    # 0.0.0.0 so the phone on the same wifi can reach it
-    app.run(host="0.0.0.0", port=5000, debug=True)
+    host = os.environ.get('FLASK_HOST', '0.0.0.0')
+    port = int(os.environ.get('FLASK_PORT', '5002'))
+    app.run(host=host, port=port, debug=False)

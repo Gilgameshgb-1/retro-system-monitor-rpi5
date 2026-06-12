@@ -21,7 +21,7 @@ int main() {
     gethostname(host, sizeof(host));
 
     ix::WebSocket ws;
-    ws.setUrl("ws://localhost:5000/ws/producer");
+    ws.setUrl("ws://localhost:5002/ws/producer");
     ws.setOnMessageCallback([](const ix::WebSocketMessagePtr& msg) {
         if (msg->type == ix::WebSocketMessageType::Open)
             std::cout << "ws: connected" << std::endl;

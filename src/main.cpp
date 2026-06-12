@@ -5,10 +5,17 @@
 #include <unistd.h>
 #include <ixwebsocket/IXWebSocket.h>
 #include <nlohmann/json.hpp>
-#include "LinuxSystemMonitor.hpp"
+
+#ifdef IS_RPI
+    #include "RpiSystemMonitor.hpp"
+    using ActiveSystemMonitor = RpiSystemMonitor;
+#else
+    #include "LinuxSystemMonitor.hpp"
+    using ActiveSystemMonitor = LinuxSystemMonitor;
+#endif
 
 int main() {
-    LinuxSystemMonitor monitor;
+    ActiveSystemMonitor monitor;
 
     char host[256];
     gethostname(host, sizeof(host));
